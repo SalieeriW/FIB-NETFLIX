@@ -1,0 +1,103 @@
+# ============================================
+# STEP 2.1: Python Service Deployment
+# ============================================
+# This file tells Kubernetes how to run our Python service
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-service
+  labels:
+    app: python-service
+    component: ml-service
+spec:
+  # How many copies (replicas) of this service to run
+  # 2 means if one crashes, the other keeps serving
+  replicas: 2
+  
+  # Which pods belong to this deployment
+  selector:
+    matchLabels:
+      app: python-service
+  
+  # Template for creating pods
+  template:
+    metadata:
+      labels:
+        app: python-service
+    spec:
+      containers:
+      - name: python-service
+        image: vidstream-python:latest  # Docker image name
+        imagePullPolicy: IfNotPresent    # Use local image if available
+        
+        ports:
+        - containerPort: 5001
+          name: http
+          protocol: TCP
+        
+        # Environment variables
+        env:
+        - name: PYTHON_SERVICE_PORT
+          value: "5001"
+        - name: PYTHON_SERVICE_URL
+          value: "http://python-service:5001"
+        
+        # Resource limits (important for ML services!)
+        resources:
+          requests:
+            memory: "4Gi"    # Minimum memory needed
+            cpu: "2"         # Minimum CPU (2 cores)
+          limits:
+            memory: "8Gi"    # Maximum memory allowed
+            cpu: "4"         # Maximum CPU (4 cores)
+        
+        # Health check - K8s uses this to know if pod is healthy
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 5001
+          initialDelaySeconds: 120  # Wait 2 min (ML models need time to load)
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        # Readiness probe - pod not ready until this passes
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 5001
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+        
+        # Persistent storage for ChromaDB
+        volumeMounts:
+        - name: python-data
+          mountPath: /tmp/vidstream/rag_knowledge
+      
+      volumes:
+      - name: python-data
+        persistentVolumeClaim:
+          claimName: python-data-pvc
+
+---
+# ============================================
+# Service: Exposes pods to network
+# ============================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: python-service
+  labels:
+    app: python-service
+spec:
+  type: ClusterIP  # Internal service (only accessible within cluster)
+  ports:
+  - port: 5001
+    targetPort: 5001
+    protocol: TCP
+    name: http
+  selector:
+    app: python-service
+

@@ -1,0 +1,148 @@
+# ============================================
+# STEP 4.1: Prometheus Configuration
+# ============================================
+# This tells Prometheus what to scrape (collect metrics from)
+
+global:
+  # How often to scrape targets
+  scrape_interval: 15s
+  
+  # Timeout for scrape requests
+  scrape_timeout: 10s
+  
+  # How long to wait before marking target as down
+  evaluation_interval: 15s
+
+# Alertmanager configuration (for alerts)
+# We'll set this up later
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules for alerts
+rule_files:
+  # - "alerts.yml"  # Uncomment when we create alerts
+
+# Scrape configurations
+# This is where we tell Prometheus what to monitor
+scrape_configs:
+  # Prometheus monitors itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Kubernetes API server metrics
+  - job_name: 'kubernetes-apiservers'
+    kubernetes_sd_configs:
+      - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+  # Kubernetes nodes
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: node
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+
+  # Kubernetes pods (auto-discovery!)
+  # Prometheus automatically finds pods with annotation: prometheus.io/scrape: "true"
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      # Only scrape pods with annotation prometheus.io/scrape=true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      
+      # Get scrape path from annotation (default: /metrics)
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      
+      # Get port from annotation (default: 9090)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      
+      # Add pod labels as metric labels
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      
+      # Add namespace
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      
+      # Add pod name
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+
+  # Python ML Service
+  - job_name: 'python-service'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - default
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: python-service
+      - source_labels: [__meta_kubernetes_pod_ip]
+        action: replace
+        target_label: __address__
+        replacement: $1:5001
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod_name
+
+  # Java REST Service
+  - job_name: 'rest-service'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - default
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: rest-service
+      - source_labels: [__meta_kubernetes_pod_ip]
+        action: replace
+        target_label: __address__
+        replacement: $1:8080
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod_name
+
+  # Node Exporter (system metrics from each node)
+  - job_name: 'node-exporter'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: node-exporter
+      - source_labels: [__meta_kubernetes_pod_ip]
+        action: replace
+        target_label: __address__
+        replacement: $1:9100
+

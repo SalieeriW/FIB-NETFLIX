@@ -1,0 +1,113 @@
+# ============================================
+# STEP 1.4: Docker Compose for Local Testing
+# ============================================
+# Docker Compose lets you run multiple containers together
+# This is great for local development and testing
+
+version: '3.8'
+
+services:
+  # Python ML Service
+  python-service:
+    build:
+      context: ../../python-services
+      dockerfile: ../deployment/docker/python-service/Dockerfile
+    container_name: vidstream-python
+    ports:
+      - "5001:5001"  # host:container
+    environment:
+      - PYTHON_SERVICE_PORT=5001
+      - PYTHON_SERVICE_URL=http://python-service:5001
+    volumes:
+      # Persist ChromaDB data (vector database)
+      - python-data:/tmp/vidstream/rag_knowledge
+      # Mount models directory (if you want to persist downloaded models)
+      - python-models:/root/.cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - vidstream-network
+
+  # Java REST Service
+  rest-service:
+    build:
+      context: ../../rest-service
+      dockerfile: ../deployment/docker/java-rest-service/Dockerfile
+    container_name: vidstream-rest
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHON_SERVICE_URL=http://python-service:5001
+      - REST_API_URL=http://rest-service:8080/practica5-rest-service/resources
+    depends_on:
+      python-service:
+        condition: service_healthy
+    volumes:
+      # Persist database files
+      - db-data:/glassfish5/glassfish/domains/domain1/databases
+    networks:
+      - vidstream-network
+
+  # Web Client
+  web-client:
+    build:
+      context: ../../web-client
+      dockerfile: ../deployment/docker/web-client/Dockerfile
+    container_name: vidstream-web
+    ports:
+      - "80:80"
+    depends_on:
+      - rest-service
+    networks:
+      - vidstream-network
+
+  # Prometheus (for monitoring)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: vidstream-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - vidstream-network
+
+  # Grafana (for dashboards)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: vidstream-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - vidstream-network
+
+# Named volumes (persistent storage)
+volumes:
+  python-data:
+  python-models:
+  db-data:
+  prometheus-data:
+  grafana-data:
+
+# Network (allows containers to communicate)
+networks:
+  vidstream-network:
+    driver: bridge
+

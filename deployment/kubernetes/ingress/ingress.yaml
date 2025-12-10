@@ -1,0 +1,39 @@
+# ============================================
+# STEP 2.5: Ingress - External Access
+# ============================================
+# Ingress routes external traffic to internal services
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vidstream-ingress
+  annotations:
+    # Use nginx ingress controller
+    kubernetes.io/ingress.class: "nginx"
+    # SSL redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # CORS
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+  rules:
+  # Route root to web client
+  - host: vidstream.example.com  # Change to your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-client
+            port:
+              number: 80
+      
+      # Route API calls to REST service
+      - path: /practica5-rest-service
+        pathType: Prefix
+        backend:
+          service:
+            name: rest-service
+            port:
+              number: 8080
+

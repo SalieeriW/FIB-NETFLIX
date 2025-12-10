@@ -1,0 +1,22 @@
+# ============================================
+# STEP 3.6: Example Variables File
+# ============================================
+# Copy this to terraform.tfvars and fill in your values
+# terraform.tfvars is gitignored (contains secrets!)
+
+tenancy_ocid     = "ocid1.tenancy.oc1..xxxxx"
+user_ocid        = "ocid1.user.oc1..xxxxx"
+fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "us-ashburn-1"
+compartment_ocid = "ocid1.compartment.oc1..xxxxx"
+
+project_name = "vidstream"
+
+# Kubernetes settings
+kubernetes_version = "v1.28.2"
+node_pool_size     = 2
+node_shape         = "VM.Standard.A1.Flex"
+node_ocpus         = 2
+node_memory_gb     = 12
+

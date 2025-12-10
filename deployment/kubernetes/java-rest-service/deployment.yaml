@@ -1,0 +1,86 @@
+# ============================================
+# STEP 2.2: Java REST Service Deployment
+# ============================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rest-service
+  labels:
+    app: rest-service
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rest-service
+  template:
+    metadata:
+      labels:
+        app: rest-service
+    spec:
+      containers:
+      - name: rest-service
+        image: vidstream-rest:latest
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        
+        env:
+        - name: PYTHON_SERVICE_URL
+          value: "http://python-service:5001"
+        - name: REST_API_URL
+          value: "http://rest-service:8080/practica5-rest-service/resources"
+        
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"  # 0.5 cores
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        
+        livenessProbe:
+          httpGet:
+            path: /practica5-rest-service/resources/course/list
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /practica5-rest-service/resources/course/list
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        volumeMounts:
+        - name: db-data
+          mountPath: /glassfish5/glassfish/domains/domain1/databases
+      
+      volumes:
+      - name: db-data
+        persistentVolumeClaim:
+          claimName: db-data-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rest-service
+  labels:
+    app: rest-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: rest-service
+

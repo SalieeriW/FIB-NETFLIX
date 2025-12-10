@@ -1,0 +1,31 @@
+# ============================================
+# STEP 2.4: Persistent Storage
+# ============================================
+# Persistent Volumes (PV) = storage in cluster
+# Persistent Volume Claims (PVC) = request for storage
+
+# Python service storage (ChromaDB data)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: python-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce  # Can only be mounted by one pod at a time
+  resources:
+    requests:
+      storage: 10Gi  # Request 10GB of storage
+
+---
+# Database storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
