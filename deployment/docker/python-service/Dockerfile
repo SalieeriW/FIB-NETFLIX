@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements file first
 # Docker caches layers - if requirements.txt doesn't change,
 # it won't reinstall packages (saves time)
-COPY requirements.txt .
+COPY python-services/requirements.txt .
 
 # Install Python dependencies
 # --no-cache-dir saves space by not storing pip cache
@@ -40,8 +40,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM dependencies as app
 
 # Copy application code
-# . means "current directory" (python-services/)
-COPY . .
+# Copy from python-services/ directory
+COPY python-services/ .
 
 # Expose port 5001
 # This tells Docker (and Kubernetes) which port the app uses

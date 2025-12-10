@@ -9,17 +9,20 @@ FROM nginx:alpine
 
 # Copy web files to Nginx html directory
 # Nginx serves files from /usr/share/nginx/html by default
-COPY target/practica5-web-client.war /tmp/webapp.war
+# The WAR file should be in web-client/target/ from the build context root
+COPY web-client/target/practica5-web-client.war /tmp/webapp.war
 
 # Install unzip to extract WAR file
+# -o flag overwrites files without prompting (needed for non-interactive build)
 RUN apk add --no-cache unzip && \
-    unzip -q /tmp/webapp.war -d /usr/share/nginx/html/ && \
+    unzip -o -q /tmp/webapp.war -d /usr/share/nginx/html/ && \
     rm /tmp/webapp.war && \
     apk del unzip
 
 # Copy custom Nginx configuration
 # This handles routing and proxy settings
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# The nginx.conf is in deployment/docker/web-client/ from the build context root
+COPY deployment/docker/web-client/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80 (HTTP)
 EXPOSE 80

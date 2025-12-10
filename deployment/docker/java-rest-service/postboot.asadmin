@@ -1,0 +1,5 @@
+# Post-boot commands for Payara
+# Configure max POST size for video uploads
+set configs.config.server-config.network-config.protocols.protocol.http-listener-1.http.max-post-size=2147483648
+set configs.config.server-config.network-config.protocols.protocol.http-listener-2.http.max-post-size=2147483648
+
